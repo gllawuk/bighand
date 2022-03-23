@@ -9,7 +9,3 @@ data "azurerm_resource_group" "rg_app_1" {
 data "azurerm_resource_group" "rg_data_1" {
   name = "rg-data-1"
 }
-
-data "azurerm_resource_group" "rg_web_1" {
-  name = "rg-web-1"
-}
