@@ -4,7 +4,15 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 2.99"
     }
+    aws = {
+      source = "hashicorp/aws"
+      version = "~> 4.6.0"
+    }
   }
+}
+
+provider "aws" {
+  region = "eu-west-2" # Europe (London)
 }
 
 provider "azurerm" {
@@ -12,42 +20,75 @@ provider "azurerm" {
 }
 
 # resource groups
+data "azurerm_resource_group" "rg_gw_1" {
+  name = "rg-gw-1"
+}
+
 data "azurerm_resource_group" "rg_app_1" {
-  name = "rg_app_1"
+  name = "rg-app-1"
 }
 
 data "azurerm_resource_group" "rg_data_1" {
-  name = "rg_data_1"
+  name = "rg-data-1"
 }
 
 data "azurerm_resource_group" "rg_web_1" {
-  name = "rg_web_1"
+  name = "rg-web-1"
 }
 
 # subnets
 data "azurerm_subnet" "snet_app_uks_1" {
-  name = "snet_app_uks_1"
+  name = "snet-app-uks-1"
+  virtual_network_name = "vnet-uks-1"
+  resource_group_name = data.azurerm_resource_group.rg_gw_1.name
+}
+
+data "azurerm_subnet" "snet_data_uks_1" {
+  name = "snet-data-uks-1"
+  virtual_network_name = "vnet-uks-1"
+  resource_group_name = data.azurerm_resource_group.rg_gw_1.name
+}
+
+data "azurerm_subnet" "snet_web_uks_1" {
+   name = "snet-web-uks-1"
+  virtual_network_name = "vnet-uks-1"
+  resource_group_name = data.azurerm_resource_group.rg_gw_1.name 
 }
 
 # pip
 resource "azurerm_public_ip" "pip_vmweb1_1" {
   name                = "pip-vmweb1-1"
-  location            = azurerm_resource_group.rg_web_1.location
-  resource_group_name = azurerm_resource_group.rg_web_1.name
+  location            = data.azurerm_resource_group.rg_web_1.location
+  resource_group_name = data.azurerm_resource_group.rg_web_1.name
   allocation_method   = "Static"
   ip_version          = "IPv4"
   sku                 = "Basic"
 }
 
 # nics
-resource "azurerm_network_interface" "nic_vmapp1_1" {
-  name                = "nic-vmapp1-1"
-  location            = azurerm_resource_group.rg_app_1.location
-  resource_group_name = azurerm_resource_group.rg_app_1.name
+resource "azurerm_network_interface" "nic_vmsql_1" {
+  name                = "nic-vmsql-1" # Missing number, should be "nic-vmsql1-1"
+  location            = data.azurerm_resource_group.rg_data_1.location
+  resource_group_name = data.azurerm_resource_group.rg_data_1.name
 
   ip_configuration {
     name                          = "ipconfig1"
-    subnet_id                     = azurerm_subnet.snet_app_uks_1.id
+    subnet_id                     = data.azurerm_subnet.snet_data_uks_1.id
+    primary                       = true
+    private_ip_address            = "10.1.2.5"
+    private_ip_address_allocation = "Static"
+    private_ip_address_version    = "IPv4"
+  }
+}
+
+resource "azurerm_network_interface" "nic_vmapp1_1" {
+  name                = "nic-vmapp1-1"
+  location            = data.azurerm_resource_group.rg_app_1.location
+  resource_group_name = data.azurerm_resource_group.rg_app_1.name
+
+  ip_configuration {
+    name                          = "ipconfig1"
+    subnet_id                     = data.azurerm_subnet.snet_app_uks_1.id
     primary                       = true
     private_ip_address            = "10.1.3.4"
     private_ip_address_allocation = "Static"
@@ -57,12 +98,12 @@ resource "azurerm_network_interface" "nic_vmapp1_1" {
 
 resource "azurerm_network_interface" "nic_vmweb1_1" {
   name                = "nic-vmweb1-1"
-  location            = azurerm_resource_group.rg_web_1.location
-  resource_group_name = azurerm_resource_group.rg_web_1.name
+  location            = data.azurerm_resource_group.rg_web_1.location
+  resource_group_name = data.azurerm_resource_group.rg_web_1.name
 
   ip_configuration {
     name                          = "ipconfig1"
-    subnet_id                     = azurerm_subnet.snet_web_uks_1.id
+    subnet_id                     = data.azurerm_subnet.snet_web_uks_1.id
     primary                       = true
     private_ip_address            = "10.1.4.4"
     private_ip_address_allocation = "Static"
@@ -75,8 +116,8 @@ resource "azurerm_network_interface" "nic_vmweb1_1" {
 # mssql
 resource "azurerm_windows_virtual_machine" "vmsql1" {
   name                = "vmsql1"
-  location            = azurerm_resource_group.rg_data_1.location
-  resource_group_name = azurerm_resource_group.rg_data_1.name
+  location            = data.azurerm_resource_group.rg_data_1.location
+  resource_group_name = data.azurerm_resource_group.rg_data_1.name
   size                = "Standard_B2ms"
   admin_username      = var.windows_admin_username
   admin_password      = var.windows_admin_password
@@ -107,8 +148,8 @@ resource "azurerm_windows_virtual_machine" "vmsql1" {
 
 resource "azurerm_managed_disk" "vmsql1_datadisk_0" {
   name                 = "vmsql1_DataDisk_0"
-  location             = azurerm_resource_group.rg_data_1.location
-  resource_group_name  = azurerm_resource_group.rg_data_1.name
+  location             = data.azurerm_resource_group.rg_data_1.location
+  resource_group_name  = data.azurerm_resource_group.rg_data_1.name
   storage_account_type = "StandardSSD_LRS"
   create_option        = "Empty"
   disk_size_gb         = 1024
@@ -116,8 +157,8 @@ resource "azurerm_managed_disk" "vmsql1_datadisk_0" {
 
 resource "azurerm_managed_disk" "vmsql1_datadisk_1" {
   name                 = "vmsql1_DataDisk_1"
-  location             = azurerm_resource_group.rg_data_1.location
-  resource_group_name  = azurerm_resource_group.rg_data_1.name
+  location             = data.azurerm_resource_group.rg_data_1.location
+  resource_group_name  = data.azurerm_resource_group.rg_data_1.name
   storage_account_type = "StandardSSD_LRS"
   create_option        = "Empty"
   disk_size_gb         = 1024
@@ -140,8 +181,8 @@ resource "azurerm_virtual_machine_data_disk_attachment" "vmsql1_to_vmsql1_datadi
 # bighand server
 resource "azurerm_windows_virtual_machine" "vmapp1" {
   name                = "vmapp1"
-  location            = azurerm_resource_group.rg_app_1.location
-  resource_group_name = azurerm_resource_group.rg_app_1.name
+  location            = data.azurerm_resource_group.rg_app_1.location
+  resource_group_name = data.azurerm_resource_group.rg_app_1.name
   size                = "Standard_B2s"
   admin_username      = var.windows_admin_username
   admin_password      = var.windows_admin_password
@@ -172,8 +213,8 @@ resource "azurerm_windows_virtual_machine" "vmapp1" {
 # bighand go server
 resource "azurerm_windows_virtual_machine" "vmweb1" {
   name                = "vmweb1"
-  location            = azurerm_resource_group.rg_web_1.location
-  resource_group_name = azurerm_resource_group.rg_web_1.name
+  location            = data.azurerm_resource_group.rg_web_1.location
+  resource_group_name = data.azurerm_resource_group.rg_web_1.name
   size                = "Standard_B2s"
   admin_username      = var.windows_admin_username
   admin_password      = var.windows_admin_password
@@ -207,9 +248,17 @@ data "aws_route53_zone" "gregglatchams_com" {
 
 # record
 resource "aws_route53_record" "gregglatchams_com_pip_vmweb1_1" {
-  zone_id = aws_route53_zone.gregglatchams_com.id
+  zone_id = data.aws_route53_zone.gregglatchams_com.id
   name    = "pip-vmweb1-1.gregglatchams.com"
   type    = "A"
   ttl     = "300"
   records = [azurerm_public_ip.pip_vmweb1_1.ip_address]
+}
+
+resource "aws_route53_record" "gregglatchams_com_bighand" {
+  zone_id = data.aws_route53_zone.gregglatchams_com.id
+  name    = "bighand.gregglatchams.com"
+  type    = "CNAME"
+  ttl     = "300"
+  records = [aws_route53_record.gregglatchams_com_pip_vmweb1_1.fqdn]
 }

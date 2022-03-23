@@ -4,7 +4,7 @@ terraform {
     organization = "gllaw"
 
     workspaces {
-      name = "terraform"
+      name = "bighand"
     }
   }
 }
