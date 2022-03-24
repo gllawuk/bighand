@@ -1,4 +1,3 @@
-# sql
 resource "azurerm_windows_virtual_machine" "vmsql1" {
   name                = "vmsql1"
   location            = data.azurerm_resource_group.rg_data_1.location
@@ -31,7 +30,6 @@ resource "azurerm_windows_virtual_machine" "vmsql1" {
   }
 }
 
-# bighand
 resource "azurerm_windows_virtual_machine" "vmapp1" {
   name                = "vmapp1"
   location            = data.azurerm_resource_group.rg_app_1.location
